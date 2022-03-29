@@ -1,5 +1,5 @@
 import torch
-from torch_geometric.data import Data
+# from torch_geometric.data import Data
 import numpy as np
 
 class stock_state():
@@ -80,8 +80,8 @@ class stock_state():
             reward += lot['amount'] * (value - profit_tax*np.max(0, value-lot['value']))
         return reward
 
-class state():
-    def __init__(self, init_money=10000, init_UPRO_val=42.75, init_UPRO_amount=10, init_TMF_val=24.93, init_TMF_amount=10):
+class env():
+    def __init__(self, init_money=5000, init_UPRO_val=42.75, init_UPRO_amount=10, init_TMF_val=24.93, init_TMF_amount=10):
         self.Money_Node = stock_state(stock_name="money", stock_type="money", num_of_stocks=init_money,       stock_value=1,             lots=[])
         self.UPRO_Node  = stock_state(stock_name="UPRO",  stock_type="stock", num_of_stocks=init_UPRO_amount, stock_value=init_UPRO_val, lots=[])
         self.TMF_Node   = stock_state(stock_name="TMF",   stock_type="stock", num_of_stocks=init_TMF_amount,  stock_value=init_TMF_val,  lots=[])
@@ -93,7 +93,7 @@ class state():
         self.TMF_Node.update_stock_value(TMF_val)
         return
 
-    def state_observation(self):  # cur weights should be in size: 3X2
+    def observation(self):  # cur weights should be in size: 3X2
         """
         :return: numpy 3x2 Features matrix, each row contains: stock_value, stock_amount
         """
@@ -122,7 +122,7 @@ class state():
                 investment is selected by mod(action,3) - according to env dictionary
         """
         if action == 18:
-            return self.state_observation(), self.reward()
+            return self.observation(), self.reward()
         investing_percentage = self.investing_steps[np.mod(action, 3)]
         edge      = int(action/6)
         direction = np.mod(action, 6) < 3
@@ -156,7 +156,7 @@ class state():
                 selling_value = self.TMF_Node.sell_stocks(amount)
                 self.UPRO_Node.buy_stocks(selling_value)
 
-        return self.state_observation(), self.reward()
+        return self.observation(), self.reward()
 
 
 

@@ -12,6 +12,9 @@ class stock_state():
         self.lots          = lots
         self.profit_tax    = 0.25
 
+        lot = {'amount': num_of_stocks, 'value': stock_value}
+        self.lots.append(lot)
+
     @property
     def num_stocks(self):
         return self.num_of_stocks
@@ -27,18 +30,22 @@ class stock_state():
     def buy_stocks(self, money):
         """
         :param money: how much money the agent invested in stocks
-        :return: buy amount of stocks matching to money and stock value. create lot and push to lot list
+        :return: leftovers: money left from buying INTEGERS amount of stocks
+        description: buy amount of stocks matching to money and stock value. create lot and push to lot list
         """
-        value  = self.stock_value
-        amount = money / value
+        value     = self.stock_value
+        amount    = int(money / value)
+        leftovers = np.mod(money, value)
+
         self.num_of_stocks += amount
+
         if (self.stock_type == "money"):
-            return
+            return 0
         self.total_value = self.num_of_stocks * value
 
         lot = {'amount': amount, 'value': value}
         self.lots.append(lot)
-        return
+        return leftovers
 
     def sell_stocks(self, amount):
         """
@@ -47,9 +54,11 @@ class stock_state():
         description: sell stocks from lots list, from latest lot to newest
         """
         assert amount <= self.num_of_stocks, "error of amount in sell"
+        self.num_of_stocks -= amount
+
         if self.stock_type=="money":
-            self.num_of_stocks -= amount
             return amount
+
         value          = self.stock_value
         selling_value  = 0
         selling_amount = 0
@@ -62,7 +71,7 @@ class stock_state():
                 selling_amount = amount
                 self.lots[0]['amount'] -= selling_amount
 
-            selling_value += selling_amount*(value - self.profit_tax*np.max(0, value-lot['value']))
+            selling_value += selling_amount*(value - self.profit_tax*np.max([0, value-lot['value']]))
             amount -= selling_amount
         return selling_value
 
@@ -77,16 +86,18 @@ class stock_state():
         value      = self.stock_value
         reward     = 0
         for lot in self.lots:
-            reward += lot['amount'] * (value - profit_tax*np.max(0, value-lot['value']))
+            reward += lot['amount'] * (value - profit_tax*np.max([0, value-lot['value']]))
         return reward
 
 class env():
-    def __init__(self, init_money=5000, init_UPRO_val=42.75, init_UPRO_amount=10, init_TMF_val=24.93, init_TMF_amount=10):
+    def __init__(self, init_money=5000, init_UPRO_val=24.64, init_UPRO_amount=10, init_TMF_val=21.65, init_TMF_amount=10):
         self.Money_Node = stock_state(stock_name="money", stock_type="money", num_of_stocks=init_money,       stock_value=1,             lots=[])
         self.UPRO_Node  = stock_state(stock_name="UPRO",  stock_type="stock", num_of_stocks=init_UPRO_amount, stock_value=init_UPRO_val, lots=[])
         self.TMF_Node   = stock_state(stock_name="TMF",   stock_type="stock", num_of_stocks=init_TMF_amount,  stock_value=init_TMF_val,  lots=[])
 
-        self.investing_steps ={0: 0.1, 1: 0.2, 2: 0.3}
+        self.investing_steps = {0: 0.1, 1: 0.2, 2: 0.3}
+        self.target_ratio    = (init_UPRO_amount*init_UPRO_val) / (init_TMF_amount*init_TMF_val)
+        self.threshold       = 0.15 * self.target_ratio
 
     def update_stock_values(self, UPRO_val, TMF_val):
         self.UPRO_Node.update_stock_value(UPRO_val)
@@ -97,7 +108,7 @@ class env():
         """
         :return: numpy 3x2 Features matrix, each row contains: stock_value, stock_amount
         """
-        Connection_mat = torch.tensor([[0, 1 / 2, 1 / 2], [1 / 2, 0, 1 / 2], [1 / 2, 1 / 2, 0]])  # 3X3
+        Connection_mat = np.array([[0, 1 / 2, 1 / 2], [1 / 2, 0, 1 / 2], [1 / 2, 1 / 2, 0]])  # 3X3
         f_UPRO  = np.array([self.UPRO_Node.stock_val, self.UPRO_Node.num_stocks])
         f_TMF   = np.array([self.TMF_Node.stock_val,  self.TMF_Node.num_stocks])
         f_money = np.array([1, self.Money_Node.num_stocks])
@@ -128,35 +139,59 @@ class env():
         direction = np.mod(action, 6) < 3
         if edge == 0:  # UPRO-money
             if direction:
-                amount = investing_percentage * self.Money_Node.num_stocks
-                selling_value = self.Money_Node.sell_stocks(amount, 1)
-                self.UPRO_Node.buy_stocks(selling_value)
+                amount        = investing_percentage * self.Money_Node.num_stocks
+                selling_value = self.Money_Node.sell_stocks(amount)
+                leftovers     = self.UPRO_Node.buy_stocks(selling_value)
+                self.Money_Node.buy_stocks(leftovers)
             else:
-                amount = investing_percentage * self.UPRO_Node.num_stocks
+                amount        = int(investing_percentage * self.UPRO_Node.num_stocks)
                 selling_value = self.UPRO_Node.sell_stocks(amount)
                 self.Money_Node.buy_stocks(selling_value)
 
         elif edge == 1:  # money-TMF
             if direction:
-                amount = investing_percentage * self.TMF_Node.num_stocks
+                amount        = int(investing_percentage * self.TMF_Node.num_stocks)
                 selling_value = self.TMF_Node.sell_stocks(amount)
                 self.Money_Node.buy_stocks(selling_value)
             else:
-                amount = investing_percentage * self.Money_Node.num_stocks
-                selling_value = self.Money_Node.sell_stocks(amount, 1)
-                self.TMF_Node.buy_stocks(selling_value)
+                amount        = investing_percentage * self.Money_Node.num_stocks
+                selling_value = self.Money_Node.sell_stocks(amount)
+                leftovers     = self.TMF_Node.buy_stocks(selling_value)
+                self.Money_Node.buy_stocks(leftovers)
 
         else:  # UPRO-TMF
             if direction:
-                amount = investing_percentage * self.UPRO_Node.num_stocks
+                amount        = int(investing_percentage * self.UPRO_Node.num_stocks)
                 selling_value = self.UPRO_Node.sell_stocks(amount)
-                self.TMF_Node.buy_stocks(selling_value)
+                leftovers     = self.TMF_Node.buy_stocks(selling_value)
+                self.Money_Node.buy_stocks(leftovers)
             else:
-                amount = investing_percentage * self.TMF_Node.num_stocks
+                amount        = int(investing_percentage * self.TMF_Node.num_stocks)
                 selling_value = self.TMF_Node.sell_stocks(amount)
-                self.UPRO_Node.buy_stocks(selling_value)
+                leftovers     = self.UPRO_Node.buy_stocks(selling_value)
+                self.Money_Node.buy_stocks(leftovers)
 
         return self.observation(), self.reward()
+
+    def is_in_ratio(self):
+        tr = self.target_ratio
+        th = self.threshold
+        return (tr - th < (self.UPRO_Node.num_stocks*self.UPRO_Node.stock_val) / (self.TMF_Node.num_stocks*self.TMF_Node.stock_val) < tr + th)
+
+    def choose_action_for_ratio(self):
+        """
+        :return: action: which action to choose (between 12 to 17)
+        description: compute the current ratio vs. target ratio, and choose action to set the diff smaller
+        """
+        ratio = (self.UPRO_Node.num_stocks*self.UPRO_Node.stock_val) / (self.TMF_Node.num_stocks*self.TMF_Node.stock_val)
+
+        if ratio > self.target_ratio:  # move UPRO to TMF
+            action = 12
+        else:                          # Move TMF to UPRO
+            action = 15
+
+        return action
+
 
 
 

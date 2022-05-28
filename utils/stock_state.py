@@ -93,21 +93,24 @@ class stock_state():
         return reward
 
 class env():
-    def __init__(self, init_money=5000, init_UPRO_val=24.64, init_UPRO_amount=500, init_TMF_val=21.65, init_TMF_amount=500, num_of_actions=19): # noqa
+    def __init__(self, init_money=5000, init_UPRO_val=24.64, init_UPRO_amount=500, init_TMF_val=21.65, init_TMF_amount=500, num_of_actions=19, use_ratio=1): # noqa
         self.Money_Node = stock_state(stock_name="money", stock_type="money", num_of_stocks=init_money,       stock_value=1,             lots=[]) # noqa
         self.UPRO_Node  = stock_state(stock_name="UPRO",  stock_type="stock", num_of_stocks=init_UPRO_amount, stock_value=init_UPRO_val, lots=[]) # noqa
         self.TMF_Node   = stock_state(stock_name="TMF",   stock_type="stock", num_of_stocks=init_TMF_amount,  stock_value=init_TMF_val,  lots=[]) # noqa
 
         self.investing_steps = {0: 0.05, 1: 0.1, 2: 0.15}
-        # self.target_ratio    = (init_UPRO_amount*init_UPRO_val) / (init_TMF_amount*init_TMF_val)
-        self.target_ratio    = (init_UPRO_amount) / (init_TMF_amount) # noqa
+        self.target_ratio      = self.stocks_ratio # noqa
+        # self.target_ratio    = (init_UPRO_amount*init_UPRO_val) / (init_TMF_amount*init_TMF_val) # noqa
+        # self.target_ratio    = (init_UPRO_amount) / (init_TMF_amount) # noqa
         self.threshold       = 0.3 * self.target_ratio # noqa
         self.num_of_actions  = num_of_actions  # noqa
+        self.use_ratio       = use_ratio # noqa
+        self.last_reward     = self.reward() # noqa
 
     @property
     def stocks_ratio(self):
-        return self.UPRO_Node.num_stocks / self.TMF_Node.num_stocks
-        # return (self.UPRO_Node.num_stocks*self.UPRO_Node.stock_val) / (self.TMF_Node.num_stocks*self.TMF_Node.stock_val)
+        # return self.UPRO_Node.num_stocks / self.TMF_Node.num_stocks
+        return (self.UPRO_Node.num_stocks*self.UPRO_Node.stock_val) / (self.TMF_Node.num_stocks*self.TMF_Node.stock_val)
 
     @property
     def ratio_distance(self):
@@ -119,7 +122,7 @@ class env():
         if distance > 1:
             distance = 1 - 1/distance
 
-        return distance
+        return distance * self.use_ratio
 
     def update_stock_values(self, UPRO_val, TMF_val):
         self.UPRO_Node.update_stock_value(UPRO_val)
@@ -131,18 +134,22 @@ class env():
         :return: numpy 3x2 Features matrix, each row contains: stock_value, stock_amount
         """
         Connection_mat = np.array([[0, 1 / 2, 1 / 2], [1 / 2, 0, 1 / 2], [1 / 2, 1 / 2, 0]])  # 3X3
-        f_UPRO       = np.array([self.UPRO_Node.stock_val/10, self.UPRO_Node.num_stocks/10]) # noqa
-        f_TMF        = np.array([self.TMF_Node.stock_val/10,  self.TMF_Node.num_stocks/10]) # noqa
-        f_money      = np.array([1, self.Money_Node.num_stocks/100]) # noqa
+        # Connection_mat = np.array([[0, 0, 1], [0, 0, 1], [1 / 2, 1 / 2, 0]])  # 3X3# noqa
+        f_UPRO       = np.array([self.UPRO_Node.stock_val/10, self.UPRO_Node.num_stocks/100]) # noqa
+        f_TMF        = np.array([self.TMF_Node.stock_val,  self.TMF_Node.num_stocks/100]) # noqa
+        f_money      = np.array([1, self.Money_Node.num_stocks/1000]) # noqa
         Features_mat = np.vstack([f_UPRO, f_TMF, f_money])  # noqa - 3X2
         Features_mat = np.matmul(Connection_mat, Features_mat) # noqa
         Features_mat = Features_mat.reshape([-1, ]) # noqa
-        Features_mat = np.append(Features_mat, self.ratio_distance) # noqa
+        Features_mat = np.append(Features_mat, [self.ratio_distance, self.stocks_ratio]) # noqa
         return Features_mat
         # return np.matmul(Connection_mat, Features_mat)  # output is 3X2
 
-    def reward(self):
-        return (self.TMF_Node.stock_reward() + self.UPRO_Node.stock_reward() + self.Money_Node.stock_reward()) * (1 - self.ratio_distance) / 100 # noqa
+    def reward(self, final_iteration=False):
+        reward = (self.TMF_Node.stock_reward() + self.UPRO_Node.stock_reward() + self.Money_Node.stock_reward()) / 100 # noqa
+        if final_iteration:
+            return reward
+        return reward * (1 - self.ratio_distance)
 
     def step(self, action):
         """"
@@ -157,8 +164,11 @@ class env():
                 direction is selected by mod(action,6) - over/under 3, if true: money->upro->tmf->money
                 investment is selected by mod(action,3) - according to env dictionary
         """
+        last_reward = self.last_reward
         if action == self.num_of_actions:
-            return self.observation(), self.reward()
+            self.last_reward = self.reward()
+            return self.observation(), self.reward()-last_reward
+
         investing_percentage = self.investing_steps[np.mod(action, 3)]
         edge      = int(action/6) # noqa
         direction = np.mod(action, 6) < 3
@@ -195,15 +205,15 @@ class env():
                 selling_value = self.TMF_Node.sell_stocks(amount)
                 leftovers     = self.UPRO_Node.buy_stocks(selling_value) # noqa
                 self.Money_Node.buy_stocks(leftovers)
-
-        return self.observation(), self.reward()
+        self.last_reward = self.reward()
+        return self.observation(), self.reward() - last_reward
 
     def is_in_ratio(self):
         # return True
         tr = self.target_ratio
         th = self.threshold
         # return (tr - th < (self.UPRO_Node.num_stocks*self.UPRO_Node.stock_val) / (self.TMF_Node.num_stocks*self.TMF_Node.stock_val) < tr + th)
-        return (tr - th < self.stocks_ratio < tr + th)
+        return tr - th < self.stocks_ratio < tr + th
 
     def choose_action_for_ratio(self):
         """
@@ -220,4 +230,9 @@ class env():
         return action
 
     def print_env(self):
-        return f"{self.Money_Node.print_stock_stats()}{self.UPRO_Node.print_stock_stats()}{self.TMF_Node.print_stock_stats()}"
+        msg =   "stock name | stock value | stock amount\n" # noqa
+        msg += f"money      | 1           | {int(self.Money_Node.num_of_stocks)}\n"
+        msg += f"UPRO       | {self.UPRO_Node.stock_value:.2f}       | {self.UPRO_Node.num_of_stocks}\n"
+        msg += f"TMF        | {self.TMF_Node.stock_value:.2f}       | {self.TMF_Node.num_of_stocks}\n"
+        return msg
+

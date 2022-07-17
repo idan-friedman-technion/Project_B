@@ -97,12 +97,6 @@ class env():
         self.UPRO_Node  = stock_state(stock_name="UPRO",  stock_type="stock", num_of_stocks=init_UPRO_amount, stock_value=init_UPRO_val, lots=[]) # noqa
         self.TMF_Node   = stock_state(stock_name="TMF",   stock_type="stock", num_of_stocks=init_TMF_amount,  stock_value=init_TMF_val,  lots=[]) # noqa
 
-        # self.edge_index = torch.tensor([[0, 1],
-        #                            [1, 0],
-        #                            [1, 2],
-        #                            [2, 1],
-        #                            [2, 0],
-        #                            [0, 2]], dtype=torch.long)
 
         self.investing_steps = {0: 0.05, 1: 0.1, 2: 0.15}
         self.target_ratio      = self.stocks_ratio # noqa

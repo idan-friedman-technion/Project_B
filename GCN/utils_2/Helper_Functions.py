@@ -11,10 +11,6 @@ NUM_OF_ACTIONS = 6
 
 
 def create_graph_batch(list_of_graphs, device):
-    print("\n\nsummary:") if DEBUG_MODE else 0
-    # print(f"max1 = {max([a.edge_index.shape[1] for a in list_of_graphs])}")
-    # print(f"max2 = {max([a.edge_index.max() for a in list_of_graphs])}")
-    # print([a.edge_index for a in list_of_graphs])
     batch_size = len(list_of_graphs)
     start_base_nodes = 0
     start_lot_nodes  = (batch_size) * 3  # noqa - 3 nodes for each batch
@@ -38,14 +34,8 @@ def create_graph_batch(list_of_graphs, device):
             x_final_lot = torch.cat((x_final_lot, x[3:, :]))
             edge_index_final = torch.cat((edge_index_final, edge_index), dim=1)
         start_base_nodes += 3
-        # start_lot_nodes = edge_index_final.max().item() + 1  # set idx to 0 and subtract 3  first nodes
         start_lot_nodes += x.shape[0] - 3  # set idx to 0 and subtract 3  first nodes
 
-    # print(start_lot_nodes) if DEBUG_MODE else 0
-    # print(edge_index_final.max()) if DEBUG_MODE else 0
-    # print(edge_index_final.shape[1]/2) if DEBUG_MODE else 0
-    # print(f"{x_final_base.shape[0]} + {x_final_lot.shape[0]}") if DEBUG_MODE else 0
-    # print(sum) if DEBUG_MODE else 0
     return Data(x=torch.cat((x_final_base, x_final_lot)), edge_index=edge_index_final.contiguous())
 
 
@@ -76,18 +66,13 @@ class GCN(torch.nn.Module):
         self.conv1 = GCNConv(num_node_features, 8)
         self.conv2 = GCNConv(8, num_node_features)
         self.conv3 = GCNConv(num_node_features, 2)
-        # self.linear = Linear(19, 19)
 
     def forward(self, data, batch_size=1):
         x, edge_index = data.x, data.edge_index
-        # print(f"x shape begin {x.shape}") if DEBUG_MODE else 0
-        # print(f"edge_index begin {edge_index.shape}") if DEBUG_MODE else 0
         x = self.conv1(x, edge_index)
-        # print(f"x shape conv1 {x.shape}") if DEBUG_MODE else 0
         x = F.leaky_relu(x)
         x = self.conv2(x, edge_index)
         x = F.leaky_relu(x)
         x = self.conv3(x, edge_index)
-        # print(f"x shape final {x.shape}") if DEBUG_MODE else 0
         return x
 

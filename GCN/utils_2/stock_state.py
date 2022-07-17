@@ -107,13 +107,6 @@ class env():
         self.UPRO_Node  = stock_state(stock_name="UPRO",  stock_type="stock", num_of_stocks=init_UPRO_amount, stock_value=init_UPRO_val, lots=[], val_idx=0) # noqa
         self.TMF_Node   = stock_state(stock_name="TMF",   stock_type="stock", num_of_stocks=init_TMF_amount,  stock_value=init_TMF_val,  lots=[], val_idx=2) # noqa
 
-        # self.edge_index = torch.tensor([[0, 1],
-        #                            [1, 0],
-        #                            [1, 2],
-        #                            [2, 1],
-        #                            [2, 0],
-        #                            [0, 2]], dtype=torch.long)
-
         self.investing_steps = {0: 0.05, 1: 0.1, 2: 0.15}
         self.target_ratio      = self.stocks_ratio # noqa
         self.threshold       = 0.3 * self.target_ratio # noqa
@@ -150,21 +143,6 @@ class env():
         """
         :return: graph of 3 nodes (each node has its features) , and lots
         """
-        # edges = [[0, 1], [1, 0], [1, 2], [2, 1], [2, 0], [0, 2]]
-        # [UPRO-val, UPRO-am, TMF-val, TMF-am, Money-val, Money-am]
-
-        # node = 3
-        # for upro_lot in range(len(self.UPRO_Node.lots)):
-        #     # x.append([upro_lot['value'] / 10, upro_lot['amount'] / 100, 0, 0, 0, 0])
-        #     edges.append([node, 0])
-        #     edges.append([0, node])
-        #     node += 1
-        #
-        # for tmf_lot in range(len(self.TMF_Node.lots)):
-        #     # x.append([0, 0, tmf_lot['value'], tmf_lot['amount'] / 100, 0, 0])
-        #     edges.append([node, 1])
-        #     edges.append([1, node])
-        #     node += 1
 
         x = [[self.UPRO_Node.stock_val, self.UPRO_Node.num_stocks, 0, 0, 0, 0],
              [0, 0, self.TMF_Node.stock_val,  self.TMF_Node.num_stocks, 0, 0],
@@ -323,10 +301,6 @@ class env():
                 ratio_dis = abs(new_ratio - self.target_ratio)
                 amount = num_stocks / self.TMF_Node.num_stocks
         return min(amount, 1)
-
-
-
-
 
 
 

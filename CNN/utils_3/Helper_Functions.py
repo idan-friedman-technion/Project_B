@@ -28,13 +28,7 @@ def create_2d_iamge(list_of_graphs, device):
 
 
 
-class GraphDataset(Dataset):
-    def __init__(self, graphs_list):
-        self.graphs_list = graphs_list
-    def __getitem__(self, idx):
-        return self.graphs_list[idx]
-    def __len__(self):
-        return len(self.graphs_listlass LambdaLR(): # noqa
+class LambdaLR()
     def __init__(self, n_epochs, offset, decay_start_epoch):
         assert ((n_epochs - decay_start_epoch) > 0), "Decay must start before the training session ends!"
         self.n_epochs = n_epochs
@@ -51,10 +45,8 @@ class GCN(torch.nn.Module):
         self.conv1 = nn.Conv2d(in_channels, 8, 2)
         self.conv2 = nn.Conv2d(8, 1, 2)
         self.conv3 = nn.Conv2d(16, 1, 2)
-        # self.Linear = nn.Linear(16*2*2, num_classes)
         self.Linear = nn.Conv1d(7, num_classes, 2)
         self.pool = nn.MaxPool2d((1, 2))
-        # self.linear = Linear(19, 19)
 
     def forward(self, x):
         print(f"original - {x.shape}") if DEBUG_MODE else 0

@@ -95,9 +95,6 @@ class agent(): # noqa
         loss_array = np.array([]) # noqa
         actions    = torch.from_numpy(actions).view(-1, 1).to(DEVICE) # noqa
 
-        # X = current_qs_list.gather(0, actions) # noqa
-
-
         Y = torch.from_numpy(rewards).to(DEVICE).float() + discount_factor * future_qs_list.max(dim=1)[0] # noqa
 
         temp = torch.zeros(batch_size).to(DEVICE)
@@ -267,26 +264,8 @@ def main():
 
 
 if __name__ == '__main__':
-    # print(DEVICE)
     if RUN_MAIN:
         main()
-    # plot_summary_files(files_list=['results_files/reference.txt', '2022-05-22.txt'])
-    # plot_summary_files(files_list=['target_ratio/2022-05-22-target_1.2068147344802447.txt', 'target_ratio/2022-05-22-target_0.7232387061364003.txt'])
-    # file = 'target_ratio/2022-05-22-target_1.2068147344802447.txt'
-    # file = 'target_ratio/2022-05-22-target_1.1376639495304905.txt'
-    # file = 'target_ratio/2022-05-22-target_1.21685955851548.txt'
-    # file = 'target_ratio/2022-05-22-target_0.7232387061364003.txt'
-
-    # file = 'train_episode_6000-lr_decay_0.txt'
-    # file1 = 'train_episode_6000-lr_decay_1.txt'
-    # # file = '2022-06-07-gamma_0.9978.txt'
-    # file1 = 'Gamma/2022-06-05-gamma_0.7923.txt'
-    # file = 'decays/2022-06-04-decay_0.006.txt'
-    # # file2 = '2022-06-05-gamma_0.5326.txt'
-    # # file5 = '2022-05-31.txt'
-    # plot_summary_files(files_list=[file, file1])
-
     # file = OUTPUT_FILE
     # plot_summary_files(files_list=[file])
-    # print(torch.cuda.is_available())
-    # 3
+
